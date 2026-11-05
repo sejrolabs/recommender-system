@@ -1,12 +1,13 @@
-# NOTE : ce script est situé dans src/, mais les chemins ci-dessous sont relatifs
-# au dossier RACINE du projet — car Streamlit référence le dossier depuis lequel
-# la commande est lancée, pas l'emplacement du fichier .py.
-# À lancer depuis la RACINE du projet avec : streamlit run src/app.py
+# NOTE : Ce script supporte désormais à la fois le lancement depuis la racine du projet
+# ou depuis n'importe quel sous-dossier grâce à pathlib.
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+from pathlib import Path
 from collections import Counter
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ─────────────────────────────────────────────
 # Configuration de la page
@@ -22,13 +23,13 @@ st.set_page_config(
 # ─────────────────────────────────────────────
 @st.cache_data
 def load_data():
-    train_ratings = pd.read_csv('data/processed/train_ratings.csv')
-    movies = pd.read_csv('data/movies.csv')
+    train_ratings = pd.read_csv(BASE_DIR / 'data/processed/train_ratings.csv')
+    movies = pd.read_csv(BASE_DIR / 'data/movies.csv')
     return train_ratings, movies
 
 @st.cache_resource
 def load_model():
-    return joblib.load('outputs/models/svd_model.pkl')
+    return joblib.load(BASE_DIR / 'outputs/models/svd_model.pkl')
 
 train_ratings, movies = load_data()
 svd_model = load_model()

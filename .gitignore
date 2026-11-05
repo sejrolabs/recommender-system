@@ -1,1 +1,24 @@
-data/
+# Notebooks checkpoints
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environnements Python
+.env
+.venv
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Outputs graphiques (reproductibles depuis les notebooks)
+outputs/*.png
+
+# NE PAS ignorer les données CSV ni le modèle — nécessaires pour le déploiement HF Spaces
+# data/   ← retiré intentionnellement

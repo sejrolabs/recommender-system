@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CinéMatch | Système de Recommandation de Films (SVD)</title>
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            dark: {
+              bg: '#0b0f19',
+              card: '#131b2e',
+              border: '#1f2b48'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- KaTeX — Math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous"/>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"
+    onload="renderMathInElement(document.body, {
+      delimiters: [
+        {left: '$$', right: '$$', display: true},
+        {left: '$', right: '$', display: false}
+      ],
+      throwOnError: false
+    });">
+  </script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="bg-[#0b0f19] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- TOP NAVBAR -->
+  <header class="sticky top-0 z-50 glass-nav">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand -->
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('tab-guest')">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-rose-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+          <i data-lucide="film" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <span class="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
+            Ciné<span class="text-indigo-400">Match</span>
+            <span class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">SVD</span>
+          </span>
+          <p class="text-[11px] text-slate-400 hidden sm:block">Moteur de Recommandation MovieLens</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center space-x-1 sm:space-x-2">
+        <button id="nav-btn-guest" onclick="switchTab('tab-guest')" class="px-3.5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all bg-indigo-600 text-white shadow-md shadow-indigo-600/30">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          <span>Pour Vous</span>
+        </button>
+
+        <button id="nav-btn-users" onclick="switchTab('tab-users')" class="px-3.5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all text-slate-400 hover:text-white hover:bg-slate-800/60">
+          <i data-lucide="users" class="w-4 h-4"></i>
+          <span class="hidden md:inline">Profils Utilisateurs</span>
+          <span class="md:hidden">Profils</span>
+        </button>
+
+        <button id="nav-btn-similar" onclick="switchTab('tab-similar')" class="px-3.5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all text-slate-400 hover:text-white hover:bg-slate-800/60">
+          <i data-lucide="compass" class="w-4 h-4"></i>
+          <span class="hidden md:inline">Films Similaires</span>
+          <span class="md:hidden">Similaires</span>
+        </button>
+
+        <button id="nav-btn-metrics" onclick="switchTab('tab-metrics')" class="px-3.5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all text-slate-400 hover:text-white hover:bg-slate-800/60">
+          <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+          <span class="hidden lg:inline">Modèle & Métriques</span>
+          <span class="lg:hidden">Métriques</span>
+        </button>
+      </nav>
+
+      <!-- External Links -->
+      <div class="flex items-center space-x-3">
+        <a href="/docs" target="_blank" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors">
+          <i data-lucide="code-2" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span>API Docs</span>
+        </a>
+        <a href="https://github.com/sejrolabs/recommender-system" target="_blank" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors" title="Code source GitHub">
+          <i data-lucide="github" class="w-5 h-5"></i>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- ================================================================= -->
+    <!-- TAB 1: MODE INVITÉ / COLD-START RECOMMANDATION EN TEMPS RÉEL       -->
+    <!-- ================================================================= -->
+    <section id="tab-guest" class="tab-pane space-y-8">
+      
+      <!-- Hero Banner -->
+      <div class="relative overflow-hidden rounded-3xl glass-panel p-6 sm:p-10 border border-indigo-500/20 shadow-2xl">
+        <div class="absolute -right-20 -bottom-20 w-80 h-80 rounded-full bg-indigo-600/10 blur-3xl pointer-events-none"></div>
+        <div class="relative z-10 max-w-3xl space-y-3">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-semibold">
+            <i data-lucide="zap" class="w-3.5 h-3.5 text-indigo-400"></i>
+            Résolution du Cold-Start par Folding-in SVD
+          </div>
+          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+            Vos Recommandations Personnalisées en Temps Réel
+          </h1>
+          <p class="text-sm sm:text-base text-slate-300 leading-relaxed">
+            Notez au moins 2 ou 3 films ci-dessous. Le modèle SVD projettera instantanément votre profil dans l'espace des facteurs latents pour prédire les films que vous allez adorer.
+          </p>
+        </div>
+
+        <!-- Quick Starters -->
+        <div class="mt-6 pt-6 border-t border-slate-800/80">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+            Ajout rapide de films populaires :
+          </p>
+          <div class="flex flex-wrap gap-2" id="quick-starters-list">
+            <!-- Dynamically populated or static popular starters -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Search & Rated Movies Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Search & Add Film -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="glass-panel p-5 rounded-2xl space-y-4">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="search" class="w-4 h-4 text-indigo-400"></i>
+              Rechercher un film à noter
+            </h3>
+            
+            <div class="relative">
+              <input 
+                type="text" 
+                id="guest-movie-search"
+                placeholder="Ex : Matrix, Inception, Pulp Fiction, Star Wars..."
+                class="w-full px-4 py-3 pl-10 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                oninput="handleGuestSearch(this.value)"
+              />
+              <i data-lucide="search" class="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5"></i>
+            </div>
+
+            <!-- Autocomplete Results Container -->
+            <div id="guest-search-results" class="space-y-2 max-h-80 overflow-y-auto pr-1 hidden">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Controls & Filters -->
+          <div class="glass-panel p-5 rounded-2xl space-y-4">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="sliders" class="w-4 h-4 text-indigo-400"></i>
+              Filtres de recommandation
+            </h3>
+
+            <div class="space-y-3 text-sm">
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1">Filtrer par genre :</label>
+                <select id="guest-genre-filter" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none" onchange="triggerGuestRecs()">
+                  <option value="">Tous les genres</option>
+                  <!-- Populated dynamically -->
+                </select>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-semibold text-slate-400 mb-1">
+                  <span>Nombre de résultats :</span>
+                  <span id="guest-count-val" class="text-indigo-400">10</span>
+                </div>
+                <input 
+                  type="range" 
+                  id="guest-count-slider" 
+                  min="5" 
+                  max="30" 
+                  value="10" 
+                  class="w-full accent-indigo-500" 
+                  oninput="document.getElementById('guest-count-val').innerText = this.value; triggerGuestRecs()"
+                />
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-semibold text-slate-400 mb-1">
+                  <span>Popularité minimale (nb votes) :</span>
+                  <span id="guest-minvotes-val" class="text-indigo-400">10</span>
+                </div>
+                <input 
+                  type="range" 
+                  id="guest-minvotes-slider" 
+                  min="0" 
+                  max="100" 
+                  value="10" 
+                  step="5" 
+                  class="w-full accent-indigo-500" 
+                  oninput="document.getElementById('guest-minvotes-val').innerText = this.value; triggerGuestRecs()"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side: Rated Movies List + Live Recs -->
+        <div class="lg:col-span-7 space-y-6">
+          
+          <!-- Current Rated Movies Panel -->
+          <div class="glass-panel p-5 rounded-2xl">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="star" class="w-4 h-4 text-amber-400 fill-amber-400"></i>
+                Vos films notés (<span id="guest-rated-count">0</span>)
+              </h3>
+              <button 
+                id="btn-clear-ratings" 
+                onclick="clearGuestRatings()" 
+                class="text-xs text-rose-400 hover:text-rose-300 font-medium hidden">
+                Tout effacer
+              </button>
+            </div>
+
+            <!-- Empty state -->
+            <div id="guest-empty-ratings" class="py-8 text-center text-slate-400 text-sm space-y-2 border border-dashed border-slate-800 rounded-xl">
+              <i data-lucide="clapperboard" class="w-8 h-8 mx-auto text-slate-600"></i>
+              <p>Vous n'avez pas encore noté de films.</p>
+              <p class="text-xs text-slate-500">Sélectionnez des films dans la recherche ou via les suggestions au-dessus.</p>
+            </div>
+
+            <!-- Rated items list -->
+            <div id="guest-rated-list" class="space-y-2 max-h-64 overflow-y-auto pr-1 hidden">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Recommendations Output Header -->
+          <div class="flex items-center justify-between">
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+              <i data-lucide="sparkles" class="w-5 h-5 text-indigo-400"></i>
+              Recommandations Calculées
+            </h2>
+            <div id="guest-status-indicator" class="text-xs text-slate-400 flex items-center gap-1.5">
+              <!-- status icon/text -->
+            </div>
+          </div>
+
+          <!-- Recommendations Grid -->
+          <div id="guest-recs-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Dynamically populated cards -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 2: EXPLORATEUR DE PROFILS UTILISATEURS (1-610)                -->
+    <!-- ================================================================= -->
+    <section id="tab-users" class="tab-pane space-y-8 hidden">
+      <div class="glass-panel p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+            <i data-lucide="users" class="w-6 h-6 text-indigo-400"></i>
+            Exploration des 610 Utilisateurs MovieLens
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Visualisez les goûts réels d'un utilisateur du jeu de données et comparez son historique avec les prédictions SVD.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3 w-full md:w-auto">
+          <label class="text-xs font-semibold text-slate-300">Utilisateur :</label>
+          <select id="user-selector" class="px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-medium text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" onchange="loadUserProfile(this.value)">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+      </div>
+
+      <!-- User Stats & Profile Content -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left: History & Genres -->
+        <div class="lg:col-span-5 space-y-6">
+          
+          <!-- Summary Card -->
+          <div class="glass-panel p-5 rounded-2xl space-y-4">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="user-check" class="w-4 h-4 text-emerald-400"></i>
+              Profil Utilisateur
+            </h3>
+            <div class="grid grid-cols-2 gap-3 text-center">
+              <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                <span id="user-stat-count" class="text-2xl font-extrabold text-indigo-400">0</span>
+                <p class="text-xs text-slate-400 mt-1">Films notés</p>
+              </div>
+              <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                <span id="user-stat-avg" class="text-2xl font-extrabold text-amber-400">0.0</span>
+                <p class="text-xs text-slate-400 mt-1">Note moyenne donnée</p>
+              </div>
+            </div>
+
+            <!-- Genre Affinities -->
+            <div>
+              <p class="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Genres les plus fréquents :</p>
+              <div id="user-genre-bars" class="space-y-2">
+                <!-- Dynamically rendered bars -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Rated Movies in History -->
+          <div class="glass-panel p-5 rounded-2xl space-y-3">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="thumbs-up" class="w-4 h-4 text-amber-400"></i>
+              Films les mieux notés par l'utilisateur
+            </h3>
+            <div id="user-top-history" class="space-y-2 max-h-96 overflow-y-auto pr-1">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right: SVD Recommendations for this user -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xl font-bold text-white flex items-center gap-2">
+              <i data-lucide="sparkles" class="w-5 h-5 text-indigo-400"></i>
+              Top Recommandations SVD (Films non vus)
+            </h3>
+            <span class="text-xs text-slate-400">Trié par note prédite</span>
+          </div>
+
+          <div id="user-recs-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Dynamically populated cards -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 3: RECHERCHE DE FILMS SIMILAIRES (ESPACE LATENT SVD)          -->
+    <!-- ================================================================= -->
+    <section id="tab-similar" class="tab-pane space-y-8 hidden">
+      <div class="glass-panel p-6 rounded-2xl max-w-4xl mx-auto space-y-4">
+        <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+          <i data-lucide="compass" class="w-6 h-6 text-indigo-400"></i>
+          Explorateur de Similarité dans l'Espace Latent SVD
+        </h2>
+        <p class="text-sm text-slate-300 leading-relaxed">
+          Le modèle SVD projette chaque film dans un espace vectoriel de <strong>50 facteurs latents</strong> appris sur les interactions. 
+          Deux films sont similaires si les spectateurs qui ont aimé le premier ont également apprécié le second (similarité cosinus des vecteurs $q_i$).
+        </p>
+
+        <!-- Search Bar -->
+        <div class="relative pt-2">
+          <input 
+            type="text" 
+            id="similar-movie-search"
+            placeholder="Tapez le titre d'un film (ex: Toy Story, Pulp Fiction, Matrix, Gladiator...)"
+            class="w-full px-4 py-3.5 pl-11 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            oninput="handleSimilarSearch(this.value)"
+          />
+          <i data-lucide="search" class="w-5 h-5 text-slate-500 absolute left-3.5 top-5"></i>
+        </div>
+
+        <div id="similar-search-results" class="space-y-2 max-h-60 overflow-y-auto pr-1 hidden">
+          <!-- Autocomplete results -->
+        </div>
+      </div>
+
+      <!-- Selected Movie Header & Similar Grid -->
+      <div id="similar-section-output" class="max-w-6xl mx-auto space-y-6 hidden">
+        <div id="similar-target-card" class="glass-panel p-5 rounded-2xl border-l-4 border-l-indigo-500 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <!-- Target movie info -->
+        </div>
+
+        <div class="space-y-3">
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="layers" class="w-5 h-5 text-indigo-400"></i>
+            Films les plus proches par facteurs latents :
+          </h3>
+          <div id="similar-movies-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Similar cards -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 4: MÉTRIQUES & ARCHITECTURE SVD                              -->
+    <!-- ================================================================= -->
+    <section id="tab-metrics" class="tab-pane space-y-8 hidden">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="glass-panel p-5 rounded-2xl text-center space-y-1">
+          <i data-lucide="film" class="w-6 h-6 text-indigo-400 mx-auto mb-2"></i>
+          <span id="metric-movies" class="text-3xl font-extrabold text-white">9,742</span>
+          <p class="text-xs text-slate-400">Films répertoriés</p>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl text-center space-y-1">
+          <i data-lucide="users" class="w-6 h-6 text-emerald-400 mx-auto mb-2"></i>
+          <span id="metric-users" class="text-3xl font-extrabold text-white">610</span>
+          <p class="text-xs text-slate-400">Utilisateurs uniques</p>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl text-center space-y-1">
+          <i data-lucide="star" class="w-6 h-6 text-amber-400 mx-auto mb-2"></i>
+          <span id="metric-ratings" class="text-3xl font-extrabold text-white">100,836</span>
+          <p class="text-xs text-slate-400">Notes enregistrées</p>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl text-center space-y-1">
+          <i data-lucide="grid" class="w-6 h-6 text-rose-400 mx-auto mb-2"></i>
+          <span id="metric-sparsity" class="text-3xl font-extrabold text-white">98.30%</span>
+          <p class="text-xs text-slate-400">Sparsité de la matrice</p>
+        </div>
+      </div>
+
+      <!-- Benchmarks Comparison -->
+      <div class="glass-panel p-6 rounded-2xl space-y-4">
+        <h3 class="text-xl font-bold text-white flex items-center gap-2">
+          <i data-lucide="award" class="w-5 h-5 text-amber-400"></i>
+          Comparaison des Modèles (Évaluation sur le Test Set)
+        </h3>
+        <p class="text-sm text-slate-300">
+          Chaque approche a été évaluée avec un split stratifié par utilisateur (80% train / 20% test garantissant la représentation des 610 utilisateurs).
+        </p>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="text-xs uppercase bg-slate-900/80 text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-4">Approche Algorithmique</th>
+                <th class="py-3 px-4">RMSE</th>
+                <th class="py-3 px-4">MAE</th>
+                <th class="py-3 px-4">Type</th>
+                <th class="py-3 px-4">Avantage principal</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800">
+              <tr class="hover:bg-slate-800/40">
+                <td class="py-3 px-4 font-medium text-slate-400">Baseline (Moyenne par film)</td>
+                <td class="py-3 px-4 font-mono">0.9856</td>
+                <td class="py-3 px-4 font-mono">0.7584</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-800 text-xs">Statistique</span></td>
+                <td class="py-3 px-4 text-xs text-slate-400">Calcul trivial, sans apprentissage</td>
+              </tr>
+              <tr class="hover:bg-slate-800/40">
+                <td class="py-3 px-4 font-medium text-slate-300">Filtrage Collaboratif Item-Based</td>
+                <td class="py-3 px-4 font-mono">0.9048</td>
+                <td class="py-3 px-4 font-mono">0.6899</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 text-xs">Similarité Cosinus</span></td>
+                <td class="py-3 px-4 text-xs text-slate-400">Bonne explicabilité directe</td>
+              </tr>
+              <tr class="bg-indigo-950/30 border-l-4 border-l-indigo-500">
+                <td class="py-3 px-4 font-bold text-white flex items-center gap-1.5">
+                  <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+                  SVD (Factorisation Matricielle Funk SVD)
+                </td>
+                <td class="py-3 px-4 font-mono font-bold text-emerald-400">0.8806</td>
+                <td class="py-3 px-4 font-mono font-bold text-emerald-400">0.6742</td>
+                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-xs font-semibold">Facteurs Latents (k=50)</span></td>
+                <td class="py-3 px-4 text-xs text-indigo-200">Meilleure précision, capture des affinités cachées</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Theory explanation card -->
+      <div class="glass-panel p-6 rounded-2xl space-y-3">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="book-open" class="w-5 h-5 text-indigo-400"></i>
+          Formulation Mathématique de la Prédiction SVD
+        </h3>
+        <p class="text-sm text-slate-300 leading-relaxed">
+          Pour un utilisateur $u$ et un film $i$, la note prédite $\hat{r}_{u,i}$ est modélisée par :
+        </p>
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 font-mono text-center text-indigo-300 text-sm sm:text-base">
+          $$\hat{r}_{u,i} = \mu + b_u + b_i + q_i^T p_u$$
+        </div>
+        <ul class="text-xs text-slate-400 space-y-1.5 list-disc pl-5">
+          <li><strong>$\mu$</strong> : moyenne globale de toutes les notes dans le dataset (3.50).</li>
+          <li><strong>$b_u$</strong> : biais individuel de l'utilisateur (spectateur généreux ou sévère).</li>
+          <li><strong>$b_i$</strong> : biais individuel du film (blockbuster apprécié ou nanar boudé).</li>
+          <li><strong>$p_u, q_i \in \mathbb{R}^{50}$</strong> : vecteurs de facteurs latents capturant les goûts thématiques profonds.</li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-800/80 bg-[#070a12] py-6 mt-12 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <p>Système de Recommandation de Films — Entraîné sur le dataset MovieLens 100k</p>
+      <div class="flex items-center space-x-4">
+        <a href="/docs" target="_blank" class="hover:text-slate-300 transition-colors">Swagger API</a>
+        <a href="https://github.com/sejrolabs/recommender-system" target="_blank" class="hover:text-slate-300 transition-colors">GitHub Repository</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- App JS -->
+  <script src="/static/app.js"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>
